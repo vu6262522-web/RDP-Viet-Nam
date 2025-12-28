@@ -68,11 +68,13 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: Ket noi Tailscale (Official Action + Day du quyen DNS)
+      - name: Ket noi Tailscale (OAuth - Khuyen cao + Day du quyen DNS)
         continue-on-error: true
         uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner,tag:rdp
           version: latest
           args: '--accept-dns=true --accept-routes=true --shields-up=false'
 
