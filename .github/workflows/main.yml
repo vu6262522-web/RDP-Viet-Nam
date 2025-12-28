@@ -49,15 +49,15 @@ jobs:
           Start-Service TermService
           Write-Host "Cau hinh RDP hoan tat" -ForegroundColor Green
 
-      - name: Tao tai khoan Premium (Random Pass - FIX LOI NGOAC)
+      - name: Tao tai khoan Premium (Random Pass - FIX HOAN TOAN LOI NGOAC)
         shell: powershell
         run: |
           Write-Host "Dang tao tai khoan ducthanggaming" -ForegroundColor Yellow
           
-          # Tạo mật khẩu ngẫu nhiên 12 ký tự - DÙNG SINGLE QUOTE ĐỂ TRÁNH LỖI NGOẶC
+          # Tạo mật khẩu ngẫu nhiên 12 ký tự - DÙNG DOUBLE QUOTE + ESCAPE KÝ TỰ ĐẶC BIỆT
           function New-RandomPassword {
-              \( chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@# \)%^&*()'
-              $password = ''
+              \( chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@# \)%^&*``()"
+              $password = ""
               for ($i = 0; $i -lt 12; $i++) {
                   $password += $chars[(Get-Random -Maximum $chars.Length)]
               }
