@@ -1,4 +1,4 @@
-name: 🚀 SERVER Ducthanggaming
+name: 🚀 SERVER ducthanggaming
 
 on:
   workflow_dispatch:
@@ -34,8 +34,8 @@ jobs:
           $OutputEncoding = [System.Text.Encoding]::UTF8
           chcp 65001 > $null
           
-          Write-Host "`n Ducthanggaming RDP SERVER" -ForegroundColor Yellow
-          Write-Host " Powered by Ducthanggaming" -ForegroundColor Green
+          Write-Host "`n ducthanggaming RDP SERVER" -ForegroundColor Yellow
+          Write-Host " Powered by ducthanggaming" -ForegroundColor Green
           Write-Host " Thời gian: ${{ github.event.inputs.duration }}" -ForegroundColor Magenta
 
       # CẤU HÌNH HỆ THỐNG
@@ -52,31 +52,36 @@ jobs:
           Start-Service TermService
           Write-Host " Cấu hình RDP hoàn tất" -ForegroundColor Green
 
-      # TẠO USER PREMIUM
+      # TẠO USER PREMIUM - (tối ưu mật khẩu)
       - name: 👤 TẠO TÀI KHOẢN PREMIUM
         run: |
           Write-Host ""
-          Write-Host "👤 ĐANG TẠO TÀI KHOẢN Ducthanggaming" -ForegroundColor Yellow
+          Write-Host "👤 ĐANG TẠO TÀI KHOẢN ducthanggaming" -ForegroundColor Yellow
           
+          # Hàm tạo password ngắn (8 ký tự) đảm bảo có ít nhất 1 chữ hoa, 1 chữ thường, 1 số
           function New-PremiumPassword {
               param()
-              $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+              $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'   # loại I,O để tránh nhầm
               $lower = 'abcdefghijkmnpqrstuvwxyz'
-              $numbers = '23456789'
+              $numbers = '23456789'               # loại 0,1 để tránh nhầm
               $all = $upper + $lower + $numbers
 
+              # đảm bảo 1 chữ hoa, 1 chữ thường, 1 chữ số
               $pw = ''
               $pw += $upper[(Get-Random -Minimum 0 -Maximum $upper.Length)]
               $pw += $lower[(Get-Random -Minimum 0 -Maximum $lower.Length)]
               $pw += $numbers[(Get-Random -Minimum 0 -Maximum $numbers.Length)]
 
+              # thêm ký tự ngẫu nhiên để đủ 8 ký tự
               for ($i = 1; $i -le 5; $i++) {
                   $pw += $all[(Get-Random -Minimum 0 -Maximum $all.Length)]
               }
 
+              # trộn ngẫu nhiên vị trí các ký tự rồi trả về
               return -join ($pw.ToCharArray() | Sort-Object { Get-Random })
           }
 
+          # Nếu người dùng đặt mật khẩu tùy chỉnh (ví dụ bằng secret) thì ưu tiên dùng
           if ($env:CUSTOM_RDP_PASS) {
               $matKhau = $env:CUSTOM_RDP_PASS
               Write-Host "│ ℹ️  Dùng mật khẩu tùy chỉnh từ env" -ForegroundColor Blue
@@ -86,26 +91,33 @@ jobs:
 
           $securePass = ConvertTo-SecureString $matKhau -AsPlainText -Force
           
+          # Xóa user cũ nếu tồn tại
           try {
-              Remove-LocalUser -Name "Ducthanggaming" -ErrorAction SilentlyContinue
+              Remove-LocalUser -Name "ducthanggaming" -ErrorAction SilentlyContinue
               Write-Host "│ ✅ Đã xóa user cũ" -ForegroundColor Green
           } catch {
               Write-Host "│ ℹ️  Không có user cũ để xóa" -ForegroundColor Blue
           }
           
+          # Tạo user mới với đầy đủ quyền
           try {
-              New-LocalUser -Name "Ducthanggaming" -Password $securePass -AccountNeverExpires -Description "Ducthanggaming Premium Account"
+              New-LocalUser -Name "ducthanggaming" -Password $securePass -AccountNeverExpires -Description "ducthanggaming Premium Account"
               Write-Host "│ ✅ Đã tạo user mới" -ForegroundColor Green
               
+              # Đặt password không bao giờ hết hạn (dùng Set-LocalUser nếu cần)
               try {
-                  Set-LocalUser -Name "Ducthanggaming" -PasswordNeverExpires $true -ErrorAction SilentlyContinue
-              } catch {}
+                  Set-LocalUser -Name "ducthanggaming" -PasswordNeverExpires $true -ErrorAction SilentlyContinue
+              } catch {
+                  # Nếu môi trường không hỗ trợ Set-LocalUser, bỏ qua an toàn
+              }
 
-              Add-LocalGroupMember -Group "Administrators" -Member "Ducthanggaming" -ErrorAction SilentlyContinue
-              Add-LocalGroupMember -Group "Remote Desktop Users" -Member "Ducthanggaming" -ErrorAction SilentlyContinue
-              Add-LocalGroupMember -Group "Users" -Member "Ducthanggaming" -ErrorAction SilentlyContinue
+              # Thêm vào các nhóm cần thiết
+              Add-LocalGroupMember -Group "Administrators" -Member "ducthanggaming" -ErrorAction SilentlyContinue
+              Add-LocalGroupMember -Group "Remote Desktop Users" -Member "ducthanggaming" -ErrorAction SilentlyContinue
+              Add-LocalGroupMember -Group "Users" -Member "ducthanggaming" -ErrorAction SilentlyContinue
               
-              Enable-LocalUser -Name "Ducthanggaming"
+              # Kích hoạt user
+              Enable-LocalUser -Name "ducthanggaming"
               
               Write-Host "│ ✅ Đã cấp quyền Administrator & RDP" -ForegroundColor Green
               
@@ -114,11 +126,12 @@ jobs:
               exit 1
           }
           
-          echo "RDP_USER=Ducthanggaming" >> $env:GITHUB_ENV
+          # Lưu thông tin (cẩn trọng nếu repo public)
+          echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
           echo "$matKhau" > $env:TEMP\rdp_password.txt
           
-          Write-Host "✅ Tài khoản: Ducthanggaming đã sẵn sàng" -ForegroundColor Green
+          Write-Host "✅ Tài khoản: ducthanggaming đã sẵn sàng" -ForegroundColor Green
 
       # TAILSCALE PREMIUM
       - name: 🌐 THIẾT LẬP MẠNG PREMIUM
@@ -128,6 +141,7 @@ jobs:
           Write-Host ""
           Write-Host "🌐 ĐANG THIẾT LẬP KẾT NỐI MẠNG" -ForegroundColor Yellow
           
+          # Cài đặt Tailscale
           try {
               $msiPath = "$env:TEMP\tailscale-premium.msi"
               Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msiPath
@@ -138,8 +152,10 @@ jobs:
               Write-Host "│ ❌ Lỗi cài đặt Tailscale" -ForegroundColor Red
           }
           
+          # Chờ dịch vụ khởi động
           Start-Sleep -Seconds 10
           
+          # Kết nối Tailscale
           try {
               & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=ducthanggaming-premium-$env:GITHUB_RUN_ID --accept-routes --accept-dns --reset
               Write-Host "│ ✅ Kết nối Tailscale thành công" -ForegroundColor Green
@@ -147,6 +163,7 @@ jobs:
               Write-Host "│ ❌ Lỗi kết nối Tailscale" -ForegroundColor Red
           }
           
+          # Lấy IP với retry mechanism
           Write-Host "🔄 Đang lấy địa chỉ IP..." -NoNewline -ForegroundColor Blue
           $ip = $null
           for($i=0; $i -lt 20; $i++) {
@@ -157,7 +174,9 @@ jobs:
                       Write-Host "`r✅ Địa chỉ IP: $ip" -ForegroundColor Green
                       break
                   }
-              } catch {}
+              } catch {
+                  # Bỏ qua lỗi và thử lại
+              }
               Write-Host "`r🔄 Đang lấy địa chỉ IP... $(@('.', '..', '...')[$i % 3])" -NoNewline -ForegroundColor Blue
               Start-Sleep -Seconds 3
           }
@@ -169,9 +188,11 @@ jobs:
 
       - name: 🌐 KIỂM TRA KẾT NỐI ĐẾN TAILSCALE
         run: |
+          # Kích hoạt Tailscale bằng Auth Key và đặt tên máy theo ID của GitHub Runner
           Write-Host "🔧 Đang khởi tạo Tailscale..."
           & "\( env:ProgramFiles\Tailscale\tailscale.exe" up --authkey= \){{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
 
+          # Chờ Tailscale cấp địa chỉ IP
           Write-Host "⏳ Đang chờ Tailscale cấp IP..."
           $tsIP = $null
           $retries = 0
@@ -182,14 +203,18 @@ jobs:
               $retries++
           }
 
+          # Nếu không lấy được địa chỉ IP thì báo lỗi và thoát
           if (-not $tsIP) {
               Write-Error "❌ Không thể lấy địa chỉ IP từ Tailscale. Dừng tiến trình."
               exit 1
           }
 
           Write-Host "✅ Đã nhận IP Tailscale: $tsIP" -ForegroundColor Green
+
+          # Xuất IP sang biến môi trường để dùng ở bước tiếp theo
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
+      # KIỂM TRA KẾT NỐI RDP
       - name: KIỂM TRA KẾT NỐI RDP
         shell: pwsh
         run: |
@@ -200,17 +225,23 @@ jobs:
               exit 1
           }
 
+     # DỌN DẸP
       - name: 🧹 DỌN DẸP FILE TẠM
         if: always()
         run: |
           Remove-Item "$env:TEMP\rdp_password.txt" -Force -ErrorAction SilentlyContinue
           Write-Host "🧹 Đã dọn dẹp file tạm thành công!" -ForegroundColor Green
 
+      # HIỂN THỊ GIAO DIỆN ĐẸP
       - name: 🎉 THÔNG TIN KẾT NỐI
         run: |
+          # Lấy mật khẩu từ biến môi trường (được thiết lập trong bước tạo user)
           $matKhau = $env:RDP_PASS
-          if (-not $matKhau) { $matKhau = "Không thể đọc mật khẩu" }
+          if (-not $matKhau) {
+              $matKhau = "Không thể đọc mật khẩu"
+          }
           
+          # Chuyển đổi thời gian từ input sang phút
           \( durationInput = " \){{ github.event.inputs.duration }}"
           switch ($durationInput) {
               "30_Phút_(30m)"              { $totalMinutes = 30;  $displayTime = "30 phút" }
@@ -227,6 +258,7 @@ jobs:
               "6_Giờ_(360m)"               { $totalMinutes = 360; $displayTime = "6 giờ" }
           }
           
+          # Tính thời gian chính xác
           $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
           $thoiGianBatDau = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
           $thoiGianKetThuc = $thoiGianBatDau.AddMinutes($totalMinutes)
@@ -236,7 +268,7 @@ jobs:
           Write-Host "│              🎉 KẾT NỐI THÀNH CÔNG!              │" -ForegroundColor Cyan
           Write-Host "├───────────────────────────────────────────┤" -ForegroundColor Cyan
           Write-Host "│ 🌐  Địa chỉ: $env:TAILSCALE_IP" -ForegroundColor White
-          Write-Host "│ 👤  Tài khoản: Ducthanggaming" -ForegroundColor White
+          Write-Host "│ 👤  Tài khoản: ducthanggaming" -ForegroundColor White
           Write-Host "│ 🔐  Mật khẩu: $matKhau" -ForegroundColor White
           Write-Host "│ ⏰  Thời lượng: $displayTime" -ForegroundColor White
           Write-Host "│ 🕐  Bắt đầu: $($thoiGianBatDau.ToString('HH:mm:ss'))" -ForegroundColor White
@@ -246,12 +278,14 @@ jobs:
           Write-Host "│ 💡  Hướng dẫn:                                     │" -ForegroundColor Cyan
           Write-Host "│   1. Mở Remote Desktop Connection                  │" -ForegroundColor Yellow
           Write-Host "│   2. Nhập: $env:TAILSCALE_IP                       │" -ForegroundColor Yellow
-          Write-Host "│   3. User: Ducthanggaming | Password: trên         │" -ForegroundColor Yellow
+          Write-Host "│   3. User: ducthanggaming | Password: trên          │" -ForegroundColor Yellow
           Write-Host "│   4. Done VPS Rồi Nha Các Tình Yêu! 🚀             │" -ForegroundColor Yellow
           Write-Host "└───────────────────────────────────────────┘" -ForegroundColor Cyan
           
+          # Lưu thời gian vào biến môi trường
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
 
+      # DUY TRÌ PHIÊN LÀM VIỆC ỔN ĐỊNH Và 90 ngày / 24/7
       - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
         shell: pwsh
         run: |
@@ -266,7 +300,7 @@ jobs:
             Write-Host "🕐 Bắt đầu: $($startTime.ToString('dd/MM/yyyy HH:mm:ss'))" -ForegroundColor Green
             Write-Host "🕐 Kết thúc: $($endTime.ToString('dd/MM/yyyy HH:mm:ss'))" -ForegroundColor Green
             Write-Host ""
-            
+            # Giám sát TermService
             $monitorScript = {
                 while ($true) {
                     $termService = Get-Service -Name TermService -ErrorAction SilentlyContinue
@@ -275,7 +309,7 @@ jobs:
                 }
             }
             Start-Job -ScriptBlock $monitorScript -Name "SystemMonitor"
-            
+            # Kiểm tra 24/7 chỉ khi TOTAL_MINUTES >= 43200
             $infiniteRun = $totalMinutes -ge 43200
             do {
                 $currentTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
@@ -292,8 +326,10 @@ jobs:
                 Start-Sleep -Seconds 5
             } while ($infiniteRun -or $timeLeft.TotalSeconds -gt 0)
             Write-Host "🎯 ĐÃ HẾT THỜI GIAN - TỰ ĐỘNG DỪNG!" -ForegroundColor Red
+            # Dọn dẹp Job giám sát
             Get-Job -Name "SystemMonitor" -ErrorAction SilentlyContinue | Stop-Job -PassThru | Remove-Job -Force
 
+      # DỌN DẸP CUỐI CÙNG
       - name: DỌN DẸP HỆ THỐNG
         if: always()
         shell: powershell
@@ -301,7 +337,7 @@ jobs:
           Write-Host ""
           Write-Host " ĐANG DỌN DẸP HỆ THỐNG..." -ForegroundColor Yellow
 
-          try { Disable-LocalUser -Name "Ducthanggaming" -ErrorAction SilentlyContinue } catch {}
+          try { Disable-LocalUser -Name "ducthanggaming" -ErrorAction SilentlyContinue } catch {}
 
           try {
               & "$env:ProgramFiles\Tailscale\tailscale.exe" down --accept-risk=all
