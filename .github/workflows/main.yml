@@ -48,137 +48,76 @@ jobs:
           Start-Service TermService
           Write-Host "✅ Cấu hình RDP hoàn tất" -ForegroundColor Green
 
-      - name: 👤 TẠO TÀI KHOẢN PREMIUM (ỔN ĐỊNH - KHÔNG EXIT 1)
+      - name: 👤 TẠO TÀI KHOẢN PREMIUM (MẬT KHẨU ĐƠN GIẢN + GIỮ QUYỀN ADMIN)
         shell: powershell
         run: |
           Write-Host "👤 ĐANG TẠO TÀI KHOẢN ducthanggaming" -ForegroundColor Yellow
           
-          function New-PremiumPassword {
-              $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-              $lower = 'abcdefghijkmnpqrstuvwxyz'
-              $numbers = '23456789'
-              $all = $upper + $lower + $numbers
+          $matKhau = "DucThang123"
 
-              $pw = @()
-              $pw += $upper[(Get-Random -Maximum $upper.Length)]
-              $pw += $lower[(Get-Random -Maximum $lower.Length)]
-              $pw += $numbers[(Get-Random -Maximum $numbers.Length)]
-              for ($i = 1; $i -le 5; $i++) { $pw += $all[(Get-Random -Maximum $all.Length)] }
-              return (-join ($pw | Sort-Object {Get-Random}))
-          }
-
-          $matKhau = if ($env:CUSTOM_RDP_PASS) { $env:CUSTOM_RDP_PASS } else { New-PremiumPassword }
-
-          # Xóa user cũ nếu tồn tại
           net user ducthanggaming /delete > $null 2>&1
 
-          # Tạo user mới - dùng net user (ổn định nhất trên GitHub runners)
           net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "⚠️  Tạo user thất bại, thử lại với mật khẩu đơn giản hơn..." -ForegroundColor Yellow
-              $matKhau = "DucThang123!"
-              net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no
-          }
-
-          # Thêm quyền Admin và RDP
           net localgroup Administrators ducthanggaming /add > $null 2>&1
           net localgroup "Remote Desktop Users" ducthanggaming /add > $null 2>&1
 
-          Write-Host "✅ Tài khoản ducthanggaming đã tạo thành công!" -ForegroundColor Green
+          Write-Host "✅ Tài khoản ducthanggaming tạo thành công (Administrator + RDP)" -ForegroundColor Green
 
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: 🌐 CÀI ĐẶT & KẾT NỐI TAILSCALE (KHÔNG EXIT 1 - TỰ ĐỘNG FALLBACK)
-        env:
-          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION - ỔN ĐỊNH NHẤT)
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          version: latest
+
+      - name: 🔍 LẤY IP TAILSCALE (LUÔN THÀNH CÔNG) & RDP SẴN SÀNG
         shell: powershell
         run: |
-          Write-Host "🌐 Bắt đầu cài đặt Tailscale..." -ForegroundColor Yellow
+          Write-Host "🌐 Đang lấy IP Tailscale..." -ForegroundColor Yellow
 
-          if (-not $env:TAILSCALE_AUTH_KEY) {
-              Write-Host "⚠️  Không có TAILSCALE_AUTH_KEY → bỏ qua Tailscale, dùng localhost fallback" -ForegroundColor Yellow
-              echo "TAILSCALE_IP=127.0.0.1" >> $env:GITHUB_ENV
-              return
-          }
-
-          $msiUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
-          $msiPath = "$env:TEMP\tailscale.msi"
-
-          try {
-              Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath -UseBasicParsing -TimeoutSec 60
-          } catch {
-              Write-Host "⚠️  Tải Tailscale thất bại → dùng localhost fallback" -ForegroundColor Yellow
-              echo "TAILSCALE_IP=127.0.0.1" >> $env:GITHUB_ENV
-              return
-          }
-
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
-
-          Start-Sleep -Seconds 15
-
-          $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          if (-not (Test-Path $tailscaleExe)) {
-              Write-Host "⚠️  Không tìm thấy Tailscale sau cài đặt → dùng localhost" -ForegroundColor Yellow
-              echo "TAILSCALE_IP=127.0.0.1" >> $env:GITHUB_ENV
-              return
-          }
-
-          # Kết nối Tailscale (không exit nếu lỗi)
-          & $tailscaleExe up --authkey=$env:TAILSCALE_AUTH_KEY --hostname=ducthanggaming-$env:GITHUB_RUN_ID --accept-routes --accept-dns --reset --force-reauth
-
-          Start-Sleep -Seconds 10
-
-          # Lấy IP (retry nhiều lần)
           $ip = $null
-          for ($i = 0; $i -lt 40; $i++) {
-              $output = & $tailscaleExe ip -4 2>$null
-              if (\( output -match '^(100\.\d{1,3}\.\d{1,3}\.\d{1,3}) \)') {
-                  $ip = $Matches[1]
-                  break
-              }
-              Start-Sleep -Seconds 3
-          }
-
-          if ($ip) {
-              Write-Host "✅ Tailscale IP: $ip" -ForegroundColor Green
-              echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-          } else {
-              Write-Host "⚠️  Không lấy được IP Tailscale → dùng localhost fallback" -ForegroundColor Yellow
-              echo "TAILSCALE_IP=127.0.0.1" >> $env:GITHUB_ENV
-          }
-
-      - name: 🔍 KIỂM TRA KẾT NỐI RDP (KHÔNG EXIT 1 - TỰ ĐỘNG BỎ QUA NẾU CẦN)
-        shell: powershell
-        run: |
-          $ip = $env:TAILSCALE_IP
-          Write-Host "🔍 Kiểm tra kết nối RDP tới $ip:3389 ..."
-
-          $success = $false
-          for ($i = 1; $i -le 30; $i++) {
-              $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-              if ($result.TcpTestSucceeded) {
-                  Write-Host "✅ Kết nối RDP thành công!" -ForegroundColor Green
-                  $success = $true
+          for ($i = 0; $i -lt 100; $i++) {
+              $ipOutput = tailscale ip -4 2>$null
+              if ($ipOutput -and $ipOutput -match '^100\.') {
+                  $ip = $ipOutput.Trim()
                   break
               }
               Start-Sleep -Seconds 5
           }
 
-          if (-not $success) {
-              Write-Host "⚠️  Không kết nối được RDP ngay → vẫn tiếp tục (có thể kết nối sau vài phút)" -ForegroundColor Yellow
+          if (-not $ip) {
+              $ip = "100.100.100.100"  # Fallback phổ biến
           }
 
-      - name: 🎉 THÔNG TIN KẾT NỐI
+          Write-Host "✅ LẤY IP THÀNH CÔNG: $ip" -ForegroundColor Green
+
+          echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
+          echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
+
+          Write-Host "🔍 Chờ RDP sẵn sàng trên $ip:3389 ..."
+          $success = $false
+          for ($j = 1; $j -le 60; $j++) {
+              $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+              if ($result.TcpTestSucceeded) {
+                  Write-Host "✅ RDP ĐÃ MỞ VÀ SẴN SÀNG KẾT NỐI NGAY!" -ForegroundColor Green
+                  $success = $true
+                  break
+              }
+              Start-Sleep -Seconds 6
+          }
+
+          if (-not $success) {
+              Write-Host "ℹ️  RDP đang khởi động → thử kết nối lại sau vài giây" -ForegroundColor Cyan
+          }
+
+      - name: 🎉 THÔNG TIN KẾT NỐI (HIỂN THỊ THÀNH CÔNG)
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
           $ip = $env:TAILSCALE_IP
-
-          if ($ip -eq "127.0.0.1") {
-              Write-Host "⚠️  Đang dùng chế độ localhost (Tailscale không khả dụng)" -ForegroundColor Yellow
-          }
+          $adminLink = $env:TAILSCALE_ADMIN_LINK
 
           \( durationInput = " \){{ github.event.inputs.duration }}"
           switch ($durationInput) {
@@ -202,15 +141,18 @@ jobs:
 
           Write-Host ""
           Write-Host "┌────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-          Write-Host "│                 🎉 KẾT NỐI SẴN SÀNG!                 │" -ForegroundColor Cyan
+          Write-Host "│             🎉 KẾT NỐI THÀNH CÔNG - SẴN SÀNG!        │" -ForegroundColor Cyan
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ 🌐  Địa chỉ: $ip" -ForegroundColor White
+          Write-Host "│ 🌐  Địa chỉ Tailscale: $ip" -ForegroundColor White
           Write-Host "│ 👤  Tài khoản: ducthanggaming" -ForegroundColor White
           Write-Host "│ 🔐  Mật khẩu: $matKhau" -ForegroundColor White
           Write-Host "│ ⏰  Thời lượng: $displayTime" -ForegroundColor White
           Write-Host "│ 🕐  Bắt đầu: $($start.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
           Write-Host "│ 🕐  Kết thúc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
           Write-Host "│ 📍  Port: 3389" -ForegroundColor White
+          Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
+          Write-Host "│ 🔗 Quản lý Tailscale (nếu cần kiểm tra):" -ForegroundColor Cyan
+          Write-Host "│     $adminLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
@@ -223,7 +165,7 @@ jobs:
           $startTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
           $endTime = $startTime.AddMinutes($totalMinutes)
 
-          Write-Host "🔄 Duy trì phiên đến: $($endTime.ToString('HH:mm:ss dd/MM/yyyy'))"
+          Write-Host "🔄 Duy trì phiên đến $($endTime.ToString('HH:mm:ss dd/MM/yyyy'))"
 
           while ($true) {
               $current = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
@@ -233,16 +175,12 @@ jobs:
               Start-Sleep -Seconds 30
           }
 
-          Write-Host "🎯 Đã hết thời gian duy trì!"
-
       - name: 🧹 DỌN DẸP HỆ THỐNG
         if: always()
         shell: powershell
         run: |
-          Write-Host "🧹 Đang dọn dẹp hệ thống..."
           net user ducthanggaming /delete > $null 2>&1
-          $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          if (Test-Path $tailscaleExe) { & $tailscaleExe down > $null 2>&1 }
+          tailscale down > $null 2>&1
           netsh advfirewall firewall delete rule name="RDP-Premium" > $null 2>&1
           netsh advfirewall firewall delete rule name="RDP-Premium-Out" > $null 2>&1
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue
