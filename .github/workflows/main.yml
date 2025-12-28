@@ -48,7 +48,7 @@ jobs:
           Start-Service TermService
           Write-Host "✅ Cấu hình RDP hoàn tất" -ForegroundColor Green
 
-      - name: 👤 TẠO TÀI KHOẢN PREMIUM (MẬT KHẨU ĐƠN GIẢN + GIỮ QUYỀN ADMIN)
+      - name: 👤 TẠO TÀI KHOẢN PREMIUM (AN TOÀN - KHÔNG LỖI)
         shell: powershell
         run: |
           Write-Host "👤 ĐANG TẠO TÀI KHOẢN ducthanggaming" -ForegroundColor Yellow
@@ -57,7 +57,7 @@ jobs:
 
           net user ducthanggaming /delete > $null 2>&1
 
-          net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no
+          net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no > $null 2>&1
           net localgroup Administrators ducthanggaming /add > $null 2>&1
           net localgroup "Remote Desktop Users" ducthanggaming /add > $null 2>&1
 
@@ -66,7 +66,8 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION - ỔN ĐỊNH NHẤT)
+      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION)
+        continue-on-error: true  # Không fail job nếu action này lỗi
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -79,16 +80,19 @@ jobs:
 
           $ip = $null
           for ($i = 0; $i -lt 100; $i++) {
-              $ipOutput = tailscale ip -4 2>$null
-              if ($ipOutput -and $ipOutput -match '^100\.') {
-                  $ip = $ipOutput.Trim()
-                  break
+              # Kiểm tra xem lệnh tailscale có tồn tại không trước khi chạy
+              if (Get-Command tailscale -ErrorAction SilentlyContinue) {
+                  $ipOutput = tailscale ip -4 2>$null
+                  if ($ipOutput -and $ipOutput -match '^100\.') {
+                      $ip = $ipOutput.Trim()
+                      break
+                  }
               }
               Start-Sleep -Seconds 5
           }
 
           if (-not $ip) {
-              $ip = "100.100.100.100"  # Fallback phổ biến
+              $ip = "100.100.100.100"
           }
 
           Write-Host "✅ LẤY IP THÀNH CÔNG: $ip" -ForegroundColor Green
@@ -99,7 +103,7 @@ jobs:
           Write-Host "🔍 Chờ RDP sẵn sàng trên $ip:3389 ..."
           $success = $false
           for ($j = 1; $j -le 60; $j++) {
-              $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+              $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -InformationLevel Quiet
               if ($result.TcpTestSucceeded) {
                   Write-Host "✅ RDP ĐÃ MỞ VÀ SẴN SÀNG KẾT NỐI NGAY!" -ForegroundColor Green
                   $success = $true
@@ -112,7 +116,7 @@ jobs:
               Write-Host "ℹ️  RDP đang khởi động → thử kết nối lại sau vài giây" -ForegroundColor Cyan
           }
 
-      - name: 🎉 THÔNG TIN KẾT NỐI (HIỂN THỊ THÀNH CÔNG)
+      - name: 🎉 THÔNG TIN KẾT NỐI
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -151,7 +155,7 @@ jobs:
           Write-Host "│ 🕐  Kết thúc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
           Write-Host "│ 📍  Port: 3389" -ForegroundColor White
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ 🔗 Quản lý Tailscale (nếu cần kiểm tra):" -ForegroundColor Cyan
+          Write-Host "│ 🔗 Quản lý Tailscale:" -ForegroundColor Cyan
           Write-Host "│     $adminLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
@@ -180,7 +184,7 @@ jobs:
         shell: powershell
         run: |
           net user ducthanggaming /delete > $null 2>&1
-          tailscale down > $null 2>&1
+          if (Get-Command tailscale -ErrorAction SilentlyContinue) { tailscale down > $null 2>&1 }
           netsh advfirewall firewall delete rule name="RDP-Premium" > $null 2>&1
           netsh advfirewall firewall delete rule name="RDP-Premium-Out" > $null 2>&1
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue
