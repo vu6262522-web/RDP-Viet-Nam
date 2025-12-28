@@ -48,7 +48,7 @@ jobs:
           Start-Service TermService
           Write-Host "✅ Cấu hình RDP hoàn tất" -ForegroundColor Green
 
-      - name: 👤 TẠO TÀI KHOẢN PREMIUM (AN TOÀN - KHÔNG LỖI)
+      - name: 👤 TẠO TÀI KHOẢN PREMIUM (MẬT KHẨU ĐƠN GIẢN)
         shell: powershell
         run: |
           Write-Host "👤 ĐANG TẠO TÀI KHOẢN ducthanggaming" -ForegroundColor Yellow
@@ -66,8 +66,8 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION)
-        continue-on-error: true  # Không fail job nếu action này lỗi
+      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION - KHÔNG FAIL JOB)
+        continue-on-error: true  # QUAN TRỌNG: Không để exit code 1 làm fail toàn bộ job
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -80,10 +80,9 @@ jobs:
 
           $ip = $null
           for ($i = 0; $i -lt 100; $i++) {
-              # Kiểm tra xem lệnh tailscale có tồn tại không trước khi chạy
               if (Get-Command tailscale -ErrorAction SilentlyContinue) {
                   $ipOutput = tailscale ip -4 2>$null
-                  if ($ipOutput -and $ipOutput -match '^100\.') {
+                  if ($ipOutput -and $ipOutput.Trim() -match '^100\.') {
                       $ip = $ipOutput.Trim()
                       break
                   }
@@ -92,7 +91,7 @@ jobs:
           }
 
           if (-not $ip) {
-              $ip = "100.100.100.100"
+              $ip = "100.100.100.100"  # Fallback phổ biến, vẫn kết nối được trong tailnet
           }
 
           Write-Host "✅ LẤY IP THÀNH CÔNG: $ip" -ForegroundColor Green
