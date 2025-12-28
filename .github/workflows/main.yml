@@ -68,35 +68,103 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: Ket noi Tailscale (OAuth - Khuyen cao + Day du quyen DNS)
-        continue-on-error: true
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:github-runner,tag:rdp
-          version: latest
-          args: '--accept-dns=true --accept-routes=true --shields-up=false'
-
-      - name: Lay IP Tailscale & Kiem tra RDP
+      - name: Tao Auth Key tu Tailscale API (Tu dong tao key moi lan chay)
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
         shell: powershell
         run: |
-          Write-Host "Dang lay IP Tailscale..." -ForegroundColor Yellow
+          if (-not $env:TAILSCALE_API_KEY) {
+              Write-Host "Khong co TAILSCALE_API_KEY - fallback IP" -ForegroundColor Cyan
+              echo "TAILSCALE_IP=100.100.100.100" >> $env:GITHUB_ENV
+              echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
+              echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
+              return
+          }
 
-          $ip = $null
-          for ($i = 0; $i -lt 100; $i++) {
-              if (Get-Command tailscale -ErrorAction SilentlyContinue) {
-                  $ipOutput = tailscale ip -4 2>$null
+          Write-Host "Dang tao reusable ephemeral Auth Key bang Tailscale API..." -ForegroundColor Yellow
+
+          # Lay tailnet tu API key (phan truoc dau cham)
+          $tailnet = ($env:TAILSCALE_API_KEY -split '\.')[0]
+          $apiUrl = "https://api.tailscale.com/api/v2/tailnet/$tailnet/keys"
+
+          $body = @{
+              capabilities = @{
+                  devices = @{
+                      create = @{
+                          reusable = $true
+                          ephemeral = $true
+                          preauthorized = $true
+                      }
+                  }
+              }
+              expirySeconds = 7776000  # 90 ngay
+              description = "GitHub Runner - Run $env:GITHUB_RUN_ID"
+          } | ConvertTo-Json -Depth 10
+
+          try {
+              $response = Invoke-RestMethod -Uri $apiUrl -Method Post -Headers @{
+                  Authorization = "Bearer $env:TAILSCALE_API_KEY"
+              } -Body $body -ContentType "application/json"
+              $authKey = $response.key
+              Write-Host "Tao Auth Key thanh cong!" -ForegroundColor Green
+              echo "GENERATED_AUTH_KEY=$authKey" >> $env:GITHUB_ENV
+          } catch {
+              Write-Host "Loi tao Auth Key (kiem tra API key hoac quyen): $($_.Exception.Message)" -ForegroundColor Red
+              echo "GENERATED_AUTH_KEY=" >> $env:GITHUB_ENV
+          }
+
+      - name: Cai dat & Ket noi Tailscale (Manual - Sieu on dinh)
+        shell: powershell
+        run: |
+          Write-Host "Dang tai va cai dat Tailscale..." -ForegroundColor Yellow
+
+          $msiUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
+          $msiPath = "$env:TEMP\tailscale.msi"
+
+          try {
+              Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath -UseBasicParsing -TimeoutSec 120
+              Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
+              Remove-Item $msiPath -Force
+              Write-Host "Cai dat Tailscale thanh cong" -ForegroundColor Green
+          } catch {
+              Write-Host "Loi tai/cai Tailscale - fallback IP" -ForegroundColor Cyan
+              $ip = "100.100.100.100"
+              echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
+              echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
+              echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
+              return
+          }
+
+          Start-Sleep -Seconds 20
+
+          $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          if (-not (Test-Path $tailscaleExe)) {
+              Write-Host "Khong tim thay tailscale.exe - fallback IP" -ForegroundColor Cyan
+              $ip = "100.100.100.100"
+          } else {
+              $args = "--accept-dns=true --accept-routes=true --shields-up=false --force-reauth"
+              if ($env:GENERATED_AUTH_KEY) {
+                  $args += " --authkey=$env:GENERATED_AUTH_KEY"
+                  Write-Host "Ket noi bang Auth Key tu API" -ForegroundColor Green
+              } else {
+                  Write-Host "Ket noi khong key (can approve thu cong)" -ForegroundColor Cyan
+              }
+
+              & $tailscaleExe up $args
+
+              Start-Sleep -Seconds 15
+
+              $ip = $null
+              for ($i = 0; $i -lt 100; $i++) {
+                  $ipOutput = & $tailscaleExe ip -4 2>$null
                   if ($ipOutput -and $ipOutput.Trim() -match '^100\.') {
                       $ip = $ipOutput.Trim()
                       break
                   }
+                  Start-Sleep -Seconds 5
               }
-              Start-Sleep -Seconds 5
-          }
 
-          if (-not $ip) {
-              $ip = "100.100.100.100"
+              if (-not $ip) { $ip = "100.100.100.100" }
           }
 
           Write-Host "Lay IP thanh cong: $ip" -ForegroundColor Green
@@ -107,7 +175,7 @@ jobs:
 
           Write-Host "Cho RDP san sang tren $ip:3389 ..."
           $success = $false
-          for ($j = 1; $j -le 60; $j++) {
+          for ($j = 1; $j -le 80; $j++) {
               $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -InformationLevel Quiet
               if ($result.TcpTestSucceeded) {
                   Write-Host "RDP da mo va san sang ket noi!" -ForegroundColor Green
@@ -192,7 +260,8 @@ jobs:
         shell: powershell
         run: |
           net user ducthanggaming /delete | Out-Null
-          if (Get-Command tailscale -ErrorAction SilentlyContinue) { tailscale down | Out-Null }
+          $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          if (Test-Path $exe) { & $exe down | Out-Null }
           netsh advfirewall firewall delete rule name="RDP-Premium" | Out-Null
           netsh advfirewall firewall delete rule name="RDP-Premium-Out" | Out-Null
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue
