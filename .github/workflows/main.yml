@@ -54,20 +54,14 @@ jobs:
         run: |
           Write-Host "Dang tao tai khoan ducthanggaming" -ForegroundColor Yellow
           
-          # Hàm tạo mật khẩu ngẫu nhiên 10 ký tự (chữ hoa, thường, số)
+          # Tạo mật khẩu ngẫu nhiên 12 ký tự (chữ hoa, thường, số, ký tự đặc biệt)
           function New-RandomPassword {
-              $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-              $lower = 'abcdefghijkmnpqrstuvwxyz'
-              $numbers = '23456789'
-              $all = $upper + $lower + $numbers
-              $pw = ''
-              $pw += $upper[(Get-Random -Maximum $upper.Length)]
-              $pw += $lower[(Get-Random -Maximum $lower.Length)]
-              $pw += $numbers[(Get-Random -Maximum $numbers.Length)]
-              for ($i = 1; $i -le 7; $i++) {
-                  $pw += $all[(Get-Random -Maximum $all.Length)]
+              \( chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@# \)%^&*"
+              $password = ""
+              for ($i = 0; $i -lt 12; $i++) {
+                  $password += $chars[(Get-Random -Maximum $chars.Length)]
               }
-              return (-join ($pw.ToCharArray() | Sort-Object {Get-Random}))
+              return $password
           }
 
           $matKhau = New-RandomPassword
@@ -172,7 +166,7 @@ jobs:
 
           Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Green
 
-      - name: Thong tin ket noi (Fix parser - Dung if-elseif + single quote)
+      - name: Thong tin ket noi (Tailscale quan ly pass khi nhap tai khoan)
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -225,23 +219,24 @@ jobs:
           $end = $start.AddMinutes($totalMinutes)
 
           Write-Host ""
-          Write-Host "┌────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-          Write-Host "│             KET NOI THANH CONG - SAN SANG!         │" -ForegroundColor Cyan
-          Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ Dia chi Tailscale: $ip" -ForegroundColor White
-          Write-Host "│ Tai khoan: ducthanggaming" -ForegroundColor White
-          Write-Host "│ Mat khau: $matKhau" -ForegroundColor White
-          Write-Host "│ Thoi luong: $displayTime" -ForegroundColor White
-          Write-Host "│ Bat dau: $($start.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
-          Write-Host "│ Ket thuc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
-          Write-Host "│ Port: 3389" -ForegroundColor White
-          Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ Quan ly may:" -ForegroundColor Cyan
-          Write-Host "│     $adminLink" -ForegroundColor Yellow
-          Write-Host "│ Dang nhap Tailscale (neu can):" -ForegroundColor Cyan
-          Write-Host "│     $loginLink" -ForegroundColor Yellow
-          Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+          Write-Host "=============================================================" -ForegroundColor Cyan
+          Write-Host "             KET NOI THANH CONG - SAN SANG!" -ForegroundColor Cyan
+          Write-Host "=============================================================" -ForegroundColor Cyan
+          Write-Host "Dia chi Tailscale: $ip" -ForegroundColor White
+          Write-Host "Tai khoan: ducthanggaming" -ForegroundColor White
+          Write-Host "Mat khau: $matKhau" -ForegroundColor White
+          Write-Host "Thoi luong: $displayTime" -ForegroundColor White
+          Write-Host "Bat dau: $($start.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
+          Write-Host "Ket thuc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
+          Write-Host "Port: 3389" -ForegroundColor White
+          Write-Host "=============================================================" -ForegroundColor Cyan
+          Write-Host "QUAN LY TAILSCALE (XEM/XAC NHAN MAY):" -ForegroundColor Cyan
+          Write-Host "    $adminLink" -ForegroundColor Yellow
+          Write-Host "DANG NHAP TAILSCALE (NEU CAN):" -ForegroundColor Cyan
+          Write-Host "    $loginLink" -ForegroundColor Yellow
+          Write-Host "=============================================================" -ForegroundColor Cyan
 
+          Write-Host "TAILSCALE DA QUAN LY MAT KHAU KHI NHAP TAI KHOAN XONG!" -ForegroundColor Red
           Write-Host "BAN CO THE KET NOI RDP NGAY BAY GIO!" -ForegroundColor Red
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
