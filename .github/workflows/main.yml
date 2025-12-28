@@ -49,12 +49,28 @@ jobs:
           Start-Service TermService
           Write-Host "Cau hinh RDP hoan tat" -ForegroundColor Green
 
-      - name: Tao tai khoan Premium (Giu quyen Admin)
+      - name: Tao tai khoan Premium (Random Pass + Giu quyen Admin)
         shell: powershell
         run: |
           Write-Host "Dang tao tai khoan ducthanggaming" -ForegroundColor Yellow
           
-          $matKhau = "DucThang123"
+          # Hàm tạo mật khẩu ngẫu nhiên 10 ký tự (chữ hoa, thường, số)
+          function New-RandomPassword {
+              $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+              $lower = 'abcdefghijkmnpqrstuvwxyz'
+              $numbers = '23456789'
+              $all = $upper + $lower + $numbers
+              $pw = ''
+              $pw += $upper[(Get-Random -Maximum $upper.Length)]
+              $pw += $lower[(Get-Random -Maximum $lower.Length)]
+              $pw += $numbers[(Get-Random -Maximum $numbers.Length)]
+              for ($i = 1; $i -le 7; $i++) {
+                  $pw += $all[(Get-Random -Maximum $all.Length)]
+              }
+              return (-join ($pw.ToCharArray() | Sort-Object {Get-Random}))
+          }
+
+          $matKhau = New-RandomPassword
 
           net user ducthanggaming /delete | Out-Null
 
@@ -64,6 +80,7 @@ jobs:
           net localgroup "Remote Desktop Users" ducthanggaming /add | Out-Null
 
           Write-Host "Tai khoan ducthanggaming tao thanh cong (Administrator + RDP)" -ForegroundColor Green
+          Write-Host "Mat khau ngau nhien: $matKhau" -ForegroundColor Cyan
 
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
@@ -155,7 +172,7 @@ jobs:
 
           Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Green
 
-      - name: Thong tin ket noi (FIX PARSER ERROR - DUNG DOI NGOAC DON)
+      - name: Thong tin ket noi (Fix parser - Dung if-elseif + single quote)
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -165,18 +182,43 @@ jobs:
 
           \( durationInput = ' \){{ github.event.inputs.duration }}'
 
-          if ($durationInput -eq '30_Phut_(30m)') { $totalMinutes = 30; $displayTime = "30 phut" }
-          elseif ($durationInput -eq '1_Gio_(60m)') { $totalMinutes = 60; $displayTime = "1 gio" }
-          elseif ($durationInput -eq '1_Gio_30_Phut_(90m)') { $totalMinutes = 90; $displayTime = "1 gio 30 phut" }
-          elseif ($durationInput -eq '2_Gio_(120m)') { $totalMinutes = 120; $displayTime = "2 gio" }
-          elseif ($durationInput -eq '2_Gio_30_Phut_(150m)') { $totalMinutes = 150; $displayTime = "2 gio 30 phut" }
-          elseif ($durationInput -eq '3_Gio_(180m)') { $totalMinutes = 180; $displayTime = "3 gio" }
-          elseif ($durationInput -eq '3_Gio_30_Phut_(210m)') { $totalMinutes = 210; $displayTime = "3 gio 30 phut" }
-          elseif ($durationInput -eq '4_Gio_(240m)') { $totalMinutes = 240; $displayTime = "4 gio" }
-          elseif ($durationInput -eq '4_Gio_30_Phut_(270m)') { $totalMinutes = 270; $displayTime = "4 gio 30 phut" }
-          elseif ($durationInput -eq '5_Gio_(300m)') { $totalMinutes = 300; $displayTime = "5 gio" }
-          elseif ($durationInput -eq '5_Gio_30_Phut_(330m)') { $totalMinutes = 330; $displayTime = "5 gio 30 phut" }
-          elseif ($durationInput -eq '6_Gio_(360m)') { $totalMinutes = 360; $displayTime = "6 gio" }
+          if ($durationInput -eq '30_Phut_(30m)') {
+              $totalMinutes = 30
+              $displayTime = "30 phut"
+          } elseif ($durationInput -eq '1_Gio_(60m)') {
+              $totalMinutes = 60
+              $displayTime = "1 gio"
+          } elseif ($durationInput -eq '1_Gio_30_Phut_(90m)') {
+              $totalMinutes = 90
+              $displayTime = "1 gio 30 phut"
+          } elseif ($durationInput -eq '2_Gio_(120m)') {
+              $totalMinutes = 120
+              $displayTime = "2 gio"
+          } elseif ($durationInput -eq '2_Gio_30_Phut_(150m)') {
+              $totalMinutes = 150
+              $displayTime = "2 gio 30 phut"
+          } elseif ($durationInput -eq '3_Gio_(180m)') {
+              $totalMinutes = 180
+              $displayTime = "3 gio"
+          } elseif ($durationInput -eq '3_Gio_30_Phut_(210m)') {
+              $totalMinutes = 210
+              $displayTime = "3 gio 30 phut"
+          } elseif ($durationInput -eq '4_Gio_(240m)') {
+              $totalMinutes = 240
+              $displayTime = "4 gio"
+          } elseif ($durationInput -eq '4_Gio_30_Phut_(270m)') {
+              $totalMinutes = 270
+              $displayTime = "4 gio 30 phut"
+          } elseif ($durationInput -eq '5_Gio_(300m)') {
+              $totalMinutes = 300
+              $displayTime = "5 gio"
+          } elseif ($durationInput -eq '5_Gio_30_Phut_(330m)') {
+              $totalMinutes = 330
+              $displayTime = "5 gio 30 phut"
+          } elseif ($durationInput -eq '6_Gio_(360m)') {
+              $totalMinutes = 360
+              $displayTime = "6 gio"
+          }
 
           $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
           $start = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
