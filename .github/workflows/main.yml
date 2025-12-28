@@ -75,9 +75,7 @@ jobs:
         run: |
           if (-not $env:TAILSCALE_API_KEY) {
               Write-Host "Khong co TAILSCALE_API_KEY - fallback IP" -ForegroundColor Cyan
-              echo "TAILSCALE_IP=100.100.100.100" >> $env:GITHUB_ENV
-              echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
-              echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
+              echo "GENERATED_AUTH_KEY=" >> $env:GITHUB_ENV
               return
           }
 
@@ -97,7 +95,6 @@ jobs:
                   }
               }
               expirySeconds = 7776000
-              description = "GitHub Runner - Run $env:GITHUB_RUN_ID"
           } | ConvertTo-Json -Depth 10
 
           try {
@@ -108,11 +105,11 @@ jobs:
               Write-Host "Tao Auth Key thanh cong!" -ForegroundColor Green
               echo "GENERATED_AUTH_KEY=$authKey" >> $env:GITHUB_ENV
           } catch {
-              Write-Host "Loi tao Auth Key - fallback IP" -ForegroundColor Cyan
+              Write-Host "Loi tao Auth Key - fallback" -ForegroundColor Cyan
               echo "GENERATED_AUTH_KEY=" >> $env:GITHUB_ENV
           }
 
-      - name: Cai dat & Ket noi Tailscale (Manual + API Key)
+      - name: Cai dat & Ket noi Tailscale (Toi uu toc do ket noi)
         shell: powershell
         run: |
           Write-Host "Dang tai va cai dat Tailscale..." -ForegroundColor Yellow
@@ -120,49 +117,34 @@ jobs:
           $msiUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
           $msiPath = "$env:TEMP\tailscale.msi"
 
-          try {
-              Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath -UseBasicParsing -TimeoutSec 120
-              Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
-              Remove-Item $msiPath -Force
-              Write-Host "Cai dat Tailscale thanh cong" -ForegroundColor Green
-          } catch {
-              Write-Host "Loi tai/cai Tailscale - fallback IP" -ForegroundColor Cyan
-              $ip = "100.100.100.100"
-              echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-              echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
-              echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
-              return
-          }
+          Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath -UseBasicParsing -TimeoutSec 120
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $msiPath -Force
 
-          Start-Sleep -Seconds 20
+          Start-Sleep -Seconds 30
 
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          if (-not (Test-Path $tailscaleExe)) {
-              Write-Host "Khong tim thay tailscale.exe - fallback IP" -ForegroundColor Cyan
-              $ip = "100.100.100.100"
-          } else {
-              if ($env:GENERATED_AUTH_KEY) {
-                  & $tailscaleExe up --authkey=$env:GENERATED_AUTH_KEY --accept-dns=$true --accept-routes=$true --shields-up=$false --force-reauth
-                  Write-Host "Ket noi bang Auth Key tu API (tu dong approve)" -ForegroundColor Green
-              } else {
-                  & $tailscaleExe up --accept-dns=$true --accept-routes=$true --shields-up=$false
-                  Write-Host "Ket noi khong key - can dang nhap thu cong" -ForegroundColor Cyan
-              }
 
-              Start-Sleep -Seconds 20
-
-              $ip = $null
-              for ($i = 0; $i -lt 100; $i++) {
-                  $ipOutput = & $tailscaleExe ip -4 2>$null
-                  if ($ipOutput -and $ipOutput.Trim() -match '^100\.') {
-                      $ip = $ipOutput.Trim()
-                      break
-                  }
-                  Start-Sleep -Seconds 5
-              }
-
-              if (-not $ip) { $ip = "100.100.100.100" }
+          $args = "--accept-dns=$true --accept-routes=$true --shields-up=$false --force-reauth --timeout=30s"
+          if ($env:GENERATED_AUTH_KEY) {
+              $args += " --authkey=$env:GENERATED_AUTH_KEY"
           }
+
+          & $tailscaleExe up $args
+
+          Start-Sleep -Seconds 40  # Cho du thoi gian ket noi on dinh
+
+          $ip = $null
+          for ($i = 0; $i -lt 80; $i++) {
+              $ipOutput = & $tailscaleExe ip -4 2>$null
+              if ($ipOutput -and $ipOutput.Trim() -match '^100\.') {
+                  $ip = $ipOutput.Trim()
+                  break
+              }
+              Start-Sleep -Seconds 5
+          }
+
+          if (-not $ip) { $ip = "100.100.100.100" }
 
           Write-Host "Lay IP thanh cong: $ip" -ForegroundColor Green
 
@@ -170,23 +152,9 @@ jobs:
           echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
           echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
 
-          Write-Host "Cho RDP san sang tren $ip:3389 ..."
-          $success = $false
-          for ($j = 1; $j -le 80; $j++) {
-              $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -InformationLevel Quiet
-              if ($result.TcpTestSucceeded) {
-                  Write-Host "RDP da mo va san sang ket noi!" -ForegroundColor Green
-                  $success = $true
-                  break
-              }
-              Start-Sleep -Seconds 6
-          }
+          Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay nua)" -ForegroundColor Green
 
-          if (-not $success) {
-              Write-Host "RDP dang khoi dong - thu ket noi lai sau vai giay" -ForegroundColor Cyan
-          }
-
-      - name: Thong tin ket noi
+      - name: Thong tin ket noi (Nhanh hon - Hien thi som)
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -226,11 +194,13 @@ jobs:
           Write-Host "│ Ket thuc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
           Write-Host "│ Port: 3389" -ForegroundColor White
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ Quan ly may (xem/xac nhan may):" -ForegroundColor Cyan
+          Write-Host "│ Quan ly may:" -ForegroundColor Cyan
           Write-Host "│     $adminLink" -ForegroundColor Yellow
           Write-Host "│ Dang nhap Tailscale (neu can):" -ForegroundColor Cyan
           Write-Host "│     $loginLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+          Write-Host "BAN CO THE KET NOI RDP NGAY BAY GIO (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Red
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
 
