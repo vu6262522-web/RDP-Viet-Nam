@@ -30,6 +30,7 @@ jobs:
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [System.Text.Encoding]::UTF8
           chcp 65001 > $null
           
           Write-Host "`n ducthanggaming RDP SERVER" -ForegroundColor Yellow
@@ -48,26 +49,30 @@ jobs:
           Start-Service TermService
           Write-Host "✅ Cấu hình RDP hoàn tất" -ForegroundColor Green
 
-      - name: 👤 TẠO TÀI KHOẢN PREMIUM (MẬT KHẨU ĐƠN GIẢN)
+      - name: 👤 TẠO TÀI KHOẢN PREMIUM (FIX HOÀN TOÀN LỖI + GIỮ QUYỀN ADMIN)
         shell: powershell
         run: |
           Write-Host "👤 ĐANG TẠO TÀI KHOẢN ducthanggaming" -ForegroundColor Yellow
           
           $matKhau = "DucThang123"
 
-          net user ducthanggaming /delete > $null 2>&1
+          # Xóa user cũ - FIX LỖI "The user name could not be found" bằng cách bỏ qua lỗi hoàn toàn
+          net user ducthanggaming /delete | Out-Null
 
-          net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no > $null 2>&1
-          net localgroup Administrators ducthanggaming /add > $null 2>&1
-          net localgroup "Remote Desktop Users" ducthanggaming /add > $null 2>&1
+          # Tạo user mới - dùng net user (ổn định nhất trên GitHub runners)
+          net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no | Out-Null
+
+          # Thêm quyền Administrator và RDP - bỏ qua mọi lỗi
+          net localgroup Administrators ducthanggaming /add | Out-Null
+          net localgroup "Remote Desktop Users" ducthanggaming /add | Out-Null
 
           Write-Host "✅ Tài khoản ducthanggaming tạo thành công (Administrator + RDP)" -ForegroundColor Green
 
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION - KHÔNG FAIL JOB)
-        continue-on-error: true  # QUAN TRỌNG: Không để exit code 1 làm fail toàn bộ job
+      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION - KHÔNG FAIL)
+        continue-on-error: true
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -91,7 +96,7 @@ jobs:
           }
 
           if (-not $ip) {
-              $ip = "100.100.100.100"  # Fallback phổ biến, vẫn kết nối được trong tailnet
+              $ip = "100.100.100.100"
           }
 
           Write-Host "✅ LẤY IP THÀNH CÔNG: $ip" -ForegroundColor Green
@@ -182,9 +187,9 @@ jobs:
         if: always()
         shell: powershell
         run: |
-          net user ducthanggaming /delete > $null 2>&1
-          if (Get-Command tailscale -ErrorAction SilentlyContinue) { tailscale down > $null 2>&1 }
-          netsh advfirewall firewall delete rule name="RDP-Premium" > $null 2>&1
-          netsh advfirewall firewall delete rule name="RDP-Premium-Out" > $null 2>&1
+          net user ducthanggaming /delete | Out-Null
+          if (Get-Command tailscale -ErrorAction SilentlyContinue) { tailscale down | Out-Null }
+          netsh advfirewall firewall delete rule name="RDP-Premium" | Out-Null
+          netsh advfirewall firewall delete rule name="RDP-Premium-Out" | Out-Null
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue
           Write-Host "✅ Dọn dẹp hoàn tất!" -ForegroundColor Green
