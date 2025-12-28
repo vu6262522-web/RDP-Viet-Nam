@@ -49,7 +49,7 @@ jobs:
           Start-Service TermService
           Write-Host "Cau hinh RDP hoan tat" -ForegroundColor Green
 
-      - name: Tao tai khoan Premium (An toan - Giu quyen Admin)
+      - name: Tao tai khoan Premium (Giu quyen Admin)
         shell: powershell
         run: |
           Write-Host "Dang tao tai khoan ducthanggaming" -ForegroundColor Yellow
@@ -68,12 +68,13 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: Ket noi Tailscale (Official Action)
+      - name: Ket noi Tailscale (Official Action + Day du quyen DNS)
         continue-on-error: true
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
           version: latest
+          args: '--accept-dns=true --accept-routes=true --shields-up=false'
 
       - name: Lay IP Tailscale & Kiem tra RDP
         shell: powershell
@@ -100,6 +101,7 @@ jobs:
 
           echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
           echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
+          echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
 
           Write-Host "Cho RDP san sang tren $ip:3389 ..."
           $success = $false
@@ -123,6 +125,7 @@ jobs:
           $matKhau = $env:RDP_PASS
           $ip = $env:TAILSCALE_IP
           $adminLink = $env:TAILSCALE_ADMIN_LINK
+          $loginLink = $env:TAILSCALE_LOGIN_LINK
 
           \( durationInput = " \){{ github.event.inputs.duration }}"
           switch ($durationInput) {
@@ -156,8 +159,10 @@ jobs:
           Write-Host "│ Ket thuc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
           Write-Host "│ Port: 3389" -ForegroundColor White
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ Quan ly Tailscale:" -ForegroundColor Cyan
+          Write-Host "│ Quan ly may (xem/xac nhan may):" -ForegroundColor Cyan
           Write-Host "│     $adminLink" -ForegroundColor Yellow
+          Write-Host "│ Dang nhap Tailscale de xac thuc:" -ForegroundColor Cyan
+          Write-Host "│     $loginLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
