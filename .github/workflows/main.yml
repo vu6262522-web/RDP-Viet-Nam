@@ -68,7 +68,7 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: Tao Auth Key tu Tailscale API (Tu dong tao key moi lan chay)
+      - name: Tao Auth Key tu Tailscale API (Tu dong tao key moi lan)
         env:
           TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
         shell: powershell
@@ -83,7 +83,6 @@ jobs:
 
           Write-Host "Dang tao reusable ephemeral Auth Key bang Tailscale API..." -ForegroundColor Yellow
 
-          # Lay tailnet tu API key (phan truoc dau cham)
           $tailnet = ($env:TAILSCALE_API_KEY -split '\.')[0]
           $apiUrl = "https://api.tailscale.com/api/v2/tailnet/$tailnet/keys"
 
@@ -97,7 +96,7 @@ jobs:
                       }
                   }
               }
-              expirySeconds = 7776000  # 90 ngay
+              expirySeconds = 7776000
               description = "GitHub Runner - Run $env:GITHUB_RUN_ID"
           } | ConvertTo-Json -Depth 10
 
@@ -109,11 +108,11 @@ jobs:
               Write-Host "Tao Auth Key thanh cong!" -ForegroundColor Green
               echo "GENERATED_AUTH_KEY=$authKey" >> $env:GITHUB_ENV
           } catch {
-              Write-Host "Loi tao Auth Key (kiem tra API key hoac quyen): $($_.Exception.Message)" -ForegroundColor Red
+              Write-Host "Loi tao Auth Key - fallback IP" -ForegroundColor Cyan
               echo "GENERATED_AUTH_KEY=" >> $env:GITHUB_ENV
           }
 
-      - name: Cai dat & Ket noi Tailscale (Manual - Sieu on dinh)
+      - name: Cai dat & Ket noi Tailscale (Manual + API Key)
         shell: powershell
         run: |
           Write-Host "Dang tai va cai dat Tailscale..." -ForegroundColor Yellow
@@ -142,17 +141,15 @@ jobs:
               Write-Host "Khong tim thay tailscale.exe - fallback IP" -ForegroundColor Cyan
               $ip = "100.100.100.100"
           } else {
-              $args = "--accept-dns=true --accept-routes=true --shields-up=false --force-reauth"
               if ($env:GENERATED_AUTH_KEY) {
-                  $args += " --authkey=$env:GENERATED_AUTH_KEY"
-                  Write-Host "Ket noi bang Auth Key tu API" -ForegroundColor Green
+                  & $tailscaleExe up --authkey=$env:GENERATED_AUTH_KEY --accept-dns=$true --accept-routes=$true --shields-up=$false --force-reauth
+                  Write-Host "Ket noi bang Auth Key tu API (tu dong approve)" -ForegroundColor Green
               } else {
-                  Write-Host "Ket noi khong key (can approve thu cong)" -ForegroundColor Cyan
+                  & $tailscaleExe up --accept-dns=$true --accept-routes=$true --shields-up=$false
+                  Write-Host "Ket noi khong key - can dang nhap thu cong" -ForegroundColor Cyan
               }
 
-              & $tailscaleExe up $args
-
-              Start-Sleep -Seconds 15
+              Start-Sleep -Seconds 20
 
               $ip = $null
               for ($i = 0; $i -lt 100; $i++) {
@@ -231,7 +228,7 @@ jobs:
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
           Write-Host "│ Quan ly may (xem/xac nhan may):" -ForegroundColor Cyan
           Write-Host "│     $adminLink" -ForegroundColor Yellow
-          Write-Host "│ Dang nhap Tailscale de xac thuc:" -ForegroundColor Cyan
+          Write-Host "│ Dang nhap Tailscale (neu can):" -ForegroundColor Cyan
           Write-Host "│     $loginLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
