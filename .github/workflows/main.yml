@@ -54,10 +54,10 @@ jobs:
         run: |
           Write-Host "Dang tao tai khoan ducthanggaming" -ForegroundColor Yellow
           
-          # Tạo mật khẩu ngẫu nhiên 12 ký tự (chữ hoa, thường, số, ký tự đặc biệt)
+          # Tạo mật khẩu ngẫu nhiên 12 ký tự - FIX LỖI NGOẶC ĐÓNG
           function New-RandomPassword {
-              \( chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@# \)%^&*"
-              $password = ""
+              \( chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@# \)%^&*'
+              $password = ''
               for ($i = 0; $i -lt 12; $i++) {
                   $password += $chars[(Get-Random -Maximum $chars.Length)]
               }
@@ -166,7 +166,7 @@ jobs:
 
           Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Green
 
-      - name: Thong tin ket noi (Tailscale quan ly pass khi nhap tai khoan)
+      - name: Thong tin ket noi
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -230,13 +230,12 @@ jobs:
           Write-Host "Ket thuc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
           Write-Host "Port: 3389" -ForegroundColor White
           Write-Host "=============================================================" -ForegroundColor Cyan
-          Write-Host "QUAN LY TAILSCALE (XEM/XAC NHAN MAY):" -ForegroundColor Cyan
+          Write-Host "Quan ly may:" -ForegroundColor Cyan
           Write-Host "    $adminLink" -ForegroundColor Yellow
-          Write-Host "DANG NHAP TAILSCALE (NEU CAN):" -ForegroundColor Cyan
+          Write-Host "Dang nhap Tailscale (neu can):" -ForegroundColor Cyan
           Write-Host "    $loginLink" -ForegroundColor Yellow
           Write-Host "=============================================================" -ForegroundColor Cyan
 
-          Write-Host "TAILSCALE DA QUAN LY MAT KHAU KHI NHAP TAI KHOAN XONG!" -ForegroundColor Red
           Write-Host "BAN CO THE KET NOI RDP NGAY BAY GIO!" -ForegroundColor Red
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
