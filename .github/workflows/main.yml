@@ -68,7 +68,7 @@ jobs:
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: Tao Auth Key tu Tailscale API (Tu dong tao key moi lan)
+      - name: Tao Auth Key tu Tailscale API
         env:
           TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
         shell: powershell
@@ -109,7 +109,7 @@ jobs:
               echo "GENERATED_AUTH_KEY=" >> $env:GITHUB_ENV
           }
 
-      - name: Cai dat & Ket noi Tailscale (Fix loi flag boolean + NeedsLogin)
+      - name: Cai dat & Ket noi Tailscale
         shell: powershell
         run: |
           Write-Host "Dang tai va cai dat Tailscale..." -ForegroundColor Yellow
@@ -126,13 +126,8 @@ jobs:
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
 
           if ($env:GENERATED_AUTH_KEY) {
-              # FIX CHÍNH: Tách flag boolean thành riêng, dùng $true/$false đúng PowerShell
-              & $tailscaleExe up --authkey=$env:GENERATED_AUTH_KEY `
-                  --accept-dns=$true `
-                  --accept-routes=$true `
-                  --shields-up=$false `
-                  --force-reauth
-              Write-Host "Ket noi bang Auth Key tu API (tu dong approve)" -ForegroundColor Green
+              & $tailscaleExe up --authkey=$env:GENERATED_AUTH_KEY --accept-dns=$true --accept-routes=$true --shields-up=$false --force-reauth
+              Write-Host "Ket noi bang Auth Key tu API" -ForegroundColor Green
           } else {
               & $tailscaleExe up --accept-dns=$true --accept-routes=$true --shields-up=$false
               Write-Host "Ket noi khong key (can approve thu cong)" -ForegroundColor Cyan
@@ -160,7 +155,7 @@ jobs:
 
           Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Green
 
-      - name: Thong tin ket noi
+      - name: Thong tin ket noi (FIX PARSER ERROR - DUNG DOI NGOAC DON)
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -168,21 +163,20 @@ jobs:
           $adminLink = $env:TAILSCALE_ADMIN_LINK
           $loginLink = $env:TAILSCALE_LOGIN_LINK
 
-          \( durationInput = " \){{ github.event.inputs.duration }}"
-          switch ($durationInput) {
-              "30_Phut_(30m)"              { $totalMinutes = 30;  $displayTime = "30 phut" }
-              "1_Gio_(60m)"                { $totalMinutes = 60;  $displayTime = "1 gio" }
-              "1_Gio_30_Phut_(90m)"        { $totalMinutes = 90;  $displayTime = "1 gio 30 phut" }
-              "2_Gio_(120m)"               { $totalMinutes = 120; $displayTime = "2 gio" }
-              "2_Gio_30_Phut_(150m)"       { $totalMinutes = 150; $displayTime = "2 gio 30 phut" }
-              "3_Gio_(180m)"               { $totalMinutes = 180; $displayTime = "3 gio" }
-              "3_Gio_30_Phut_(210m)"       { $totalMinutes = 210; $displayTime = "3 gio 30 phut" }
-              "4_Gio_(240m)"               { $totalMinutes = 240; $displayTime = "4 gio" }
-              "4_Gio_30_Phut_(270m)"       { $totalMinutes = 270; $displayTime = "4 gio 30 phut" }
-              "5_Gio_(300m)"               { $totalMinutes = 300; $displayTime = "5 gio" }
-              "5_Gio_30_Phut_(330m)"       { $totalMinutes = 330; $displayTime = "5 gio 30 phut" }
-              "6_Gio_(360m)"               { $totalMinutes = 360; $displayTime = "6 gio" }
-          }
+          \( durationInput = ' \){{ github.event.inputs.duration }}'
+
+          if ($durationInput -eq '30_Phut_(30m)') { $totalMinutes = 30; $displayTime = "30 phut" }
+          elseif ($durationInput -eq '1_Gio_(60m)') { $totalMinutes = 60; $displayTime = "1 gio" }
+          elseif ($durationInput -eq '1_Gio_30_Phut_(90m)') { $totalMinutes = 90; $displayTime = "1 gio 30 phut" }
+          elseif ($durationInput -eq '2_Gio_(120m)') { $totalMinutes = 120; $displayTime = "2 gio" }
+          elseif ($durationInput -eq '2_Gio_30_Phut_(150m)') { $totalMinutes = 150; $displayTime = "2 gio 30 phut" }
+          elseif ($durationInput -eq '3_Gio_(180m)') { $totalMinutes = 180; $displayTime = "3 gio" }
+          elseif ($durationInput -eq '3_Gio_30_Phut_(210m)') { $totalMinutes = 210; $displayTime = "3 gio 30 phut" }
+          elseif ($durationInput -eq '4_Gio_(240m)') { $totalMinutes = 240; $displayTime = "4 gio" }
+          elseif ($durationInput -eq '4_Gio_30_Phut_(270m)') { $totalMinutes = 270; $displayTime = "4 gio 30 phut" }
+          elseif ($durationInput -eq '5_Gio_(300m)') { $totalMinutes = 300; $displayTime = "5 gio" }
+          elseif ($durationInput -eq '5_Gio_30_Phut_(330m)') { $totalMinutes = 330; $displayTime = "5 gio 30 phut" }
+          elseif ($durationInput -eq '6_Gio_(360m)') { $totalMinutes = 360; $displayTime = "6 gio" }
 
           $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
           $start = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
