@@ -109,7 +109,7 @@ jobs:
               echo "GENERATED_AUTH_KEY=" >> $env:GITHUB_ENV
           }
 
-      - name: Cai dat & Ket noi Tailscale (Toi uu toc do ket noi)
+      - name: Cai dat & Ket noi Tailscale (Fix loi flag boolean + NeedsLogin)
         shell: powershell
         run: |
           Write-Host "Dang tai va cai dat Tailscale..." -ForegroundColor Yellow
@@ -125,17 +125,23 @@ jobs:
 
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
 
-          $args = "--accept-dns=$true --accept-routes=$true --shields-up=$false --force-reauth --timeout=30s"
           if ($env:GENERATED_AUTH_KEY) {
-              $args += " --authkey=$env:GENERATED_AUTH_KEY"
+              # FIX CHÍNH: Tách flag boolean thành riêng, dùng $true/$false đúng PowerShell
+              & $tailscaleExe up --authkey=$env:GENERATED_AUTH_KEY `
+                  --accept-dns=$true `
+                  --accept-routes=$true `
+                  --shields-up=$false `
+                  --force-reauth
+              Write-Host "Ket noi bang Auth Key tu API (tu dong approve)" -ForegroundColor Green
+          } else {
+              & $tailscaleExe up --accept-dns=$true --accept-routes=$true --shields-up=$false
+              Write-Host "Ket noi khong key (can approve thu cong)" -ForegroundColor Cyan
           }
 
-          & $tailscaleExe up $args
-
-          Start-Sleep -Seconds 40  # Cho du thoi gian ket noi on dinh
+          Start-Sleep -Seconds 40
 
           $ip = $null
-          for ($i = 0; $i -lt 80; $i++) {
+          for ($i = 0; $i -lt 100; $i++) {
               $ipOutput = & $tailscaleExe ip -4 2>$null
               if ($ipOutput -and $ipOutput.Trim() -match '^100\.') {
                   $ip = $ipOutput.Trim()
@@ -152,9 +158,9 @@ jobs:
           echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
           echo "TAILSCALE_LOGIN_LINK=https://tailscale.com/login" >> $env:GITHUB_ENV
 
-          Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay nua)" -ForegroundColor Green
+          Write-Host "RDP san sang ket noi (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Green
 
-      - name: Thong tin ket noi (Nhanh hon - Hien thi som)
+      - name: Thong tin ket noi
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -200,7 +206,7 @@ jobs:
           Write-Host "│     $loginLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
-          Write-Host "BAN CO THE KET NOI RDP NGAY BAY GIO (neu chua vao duoc, cho 30-60 giay)" -ForegroundColor Red
+          Write-Host "BAN CO THE KET NOI RDP NGAY BAY GIO!" -ForegroundColor Red
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
 
