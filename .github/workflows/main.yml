@@ -4,29 +4,29 @@ on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'Thời gian sử dụng'
+        description: 'Thoi gian su dung'
         required: false
-        default: '1_Giờ_30_Phút_(90m)'
+        default: '1_Gio_30_Phut_(90m)'
         type: choice
         options:
-          - '30_Phút_(30m)'
-          - '1_Giờ_(60m)'
-          - '1_Giờ_30_Phút_(90m)'
-          - '2_Giờ_(120m)'
-          - '2_Giờ_30_Phút_(150m)'
-          - '3_Giờ_(180m)'
-          - '3_Giờ_30_Phút_(210m)'
-          - '4_Giờ_(240m)'
-          - '4_Giờ_30_Phút_(270m)'
-          - '5_Giờ_(300m)'
-          - '5_Giờ_30_Phút_(330m)'
-          - '6_Giờ_(360m)'
+          - '30_Phut_(30m)'
+          - '1_Gio_(60m)'
+          - '1_Gio_30_Phut_(90m)'
+          - '2_Gio_(120m)'
+          - '2_Gio_30_Phut_(150m)'
+          - '3_Gio_(180m)'
+          - '3_Gio_30_Phut_(210m)'
+          - '4_Gio_(240m)'
+          - '4_Gio_30_Phut_(270m)'
+          - '5_Gio_(300m)'
+          - '5_Gio_30_Phut_(330m)'
+          - '6_Gio_(360m)'
 
 jobs:
   Ducthanggaming-RDP-Setup:
     runs-on: windows-latest
     steps:
-      - name: KHỞI ĐỘNG HỆ THỐNG
+      - name: Khoi dong he thong
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -35,9 +35,9 @@ jobs:
           
           Write-Host "`n ducthanggaming RDP SERVER" -ForegroundColor Yellow
           Write-Host " Powered by ducthanggaming" -ForegroundColor Green
-          Write-Host " Thời gian: ${{ github.event.inputs.duration }}" -ForegroundColor Magenta
+          Write-Host " Thoi gian: ${{ github.event.inputs.duration }}" -ForegroundColor Magenta
 
-      - name: CẤU HÌNH HỆ THỐNG
+      - name: Cau hinh he thong
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
@@ -47,41 +47,38 @@ jobs:
           netsh advfirewall firewall add rule name="RDP-Premium-Out" dir=out action=allow protocol=TCP localport=3389
           Set-Service -Name TermService -StartupType Automatic
           Start-Service TermService
-          Write-Host "✅ Cấu hình RDP hoàn tất" -ForegroundColor Green
+          Write-Host "Cau hinh RDP hoan tat" -ForegroundColor Green
 
-      - name: 👤 TẠO TÀI KHOẢN PREMIUM (FIX HOÀN TOÀN LỖI + GIỮ QUYỀN ADMIN)
+      - name: Tao tai khoan Premium (An toan - Giu quyen Admin)
         shell: powershell
         run: |
-          Write-Host "👤 ĐANG TẠO TÀI KHOẢN ducthanggaming" -ForegroundColor Yellow
+          Write-Host "Dang tao tai khoan ducthanggaming" -ForegroundColor Yellow
           
           $matKhau = "DucThang123"
 
-          # Xóa user cũ - FIX LỖI "The user name could not be found" bằng cách bỏ qua lỗi hoàn toàn
           net user ducthanggaming /delete | Out-Null
 
-          # Tạo user mới - dùng net user (ổn định nhất trên GitHub runners)
           net user ducthanggaming "$matKhau" /add /active:yes /expires:never /passwordchg:no | Out-Null
 
-          # Thêm quyền Administrator và RDP - bỏ qua mọi lỗi
           net localgroup Administrators ducthanggaming /add | Out-Null
           net localgroup "Remote Desktop Users" ducthanggaming /add | Out-Null
 
-          Write-Host "✅ Tài khoản ducthanggaming tạo thành công (Administrator + RDP)" -ForegroundColor Green
+          Write-Host "Tai khoan ducthanggaming tao thanh cong (Administrator + RDP)" -ForegroundColor Green
 
           echo "RDP_USER=ducthanggaming" >> $env:GITHUB_ENV
           echo "RDP_PASS=$matKhau" >> $env:GITHUB_ENV
 
-      - name: 🌐 KẾT NỐI TAILSCALE (OFFICIAL ACTION - KHÔNG FAIL)
+      - name: Ket noi Tailscale (Official Action)
         continue-on-error: true
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
           version: latest
 
-      - name: 🔍 LẤY IP TAILSCALE (LUÔN THÀNH CÔNG) & RDP SẴN SÀNG
+      - name: Lay IP Tailscale & Kiem tra RDP
         shell: powershell
         run: |
-          Write-Host "🌐 Đang lấy IP Tailscale..." -ForegroundColor Yellow
+          Write-Host "Dang lay IP Tailscale..." -ForegroundColor Yellow
 
           $ip = $null
           for ($i = 0; $i -lt 100; $i++) {
@@ -99,17 +96,17 @@ jobs:
               $ip = "100.100.100.100"
           }
 
-          Write-Host "✅ LẤY IP THÀNH CÔNG: $ip" -ForegroundColor Green
+          Write-Host "Lay IP thanh cong: $ip" -ForegroundColor Green
 
           echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
           echo "TAILSCALE_ADMIN_LINK=https://login.tailscale.com/admin/machines" >> $env:GITHUB_ENV
 
-          Write-Host "🔍 Chờ RDP sẵn sàng trên $ip:3389 ..."
+          Write-Host "Cho RDP san sang tren $ip:3389 ..."
           $success = $false
           for ($j = 1; $j -le 60; $j++) {
               $result = Test-NetConnection -ComputerName $ip -Port 3389 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue -InformationLevel Quiet
               if ($result.TcpTestSucceeded) {
-                  Write-Host "✅ RDP ĐÃ MỞ VÀ SẴN SÀNG KẾT NỐI NGAY!" -ForegroundColor Green
+                  Write-Host "RDP da mo va san sang ket noi!" -ForegroundColor Green
                   $success = $true
                   break
               }
@@ -117,10 +114,10 @@ jobs:
           }
 
           if (-not $success) {
-              Write-Host "ℹ️  RDP đang khởi động → thử kết nối lại sau vài giây" -ForegroundColor Cyan
+              Write-Host "RDP dang khoi dong - thu ket noi lai sau vai giay" -ForegroundColor Cyan
           }
 
-      - name: 🎉 THÔNG TIN KẾT NỐI
+      - name: Thong tin ket noi
         shell: powershell
         run: |
           $matKhau = $env:RDP_PASS
@@ -129,18 +126,18 @@ jobs:
 
           \( durationInput = " \){{ github.event.inputs.duration }}"
           switch ($durationInput) {
-              "30_Phút_(30m)"              { $totalMinutes = 30;  $displayTime = "30 phút" }
-              "1_Giờ_(60m)"                { $totalMinutes = 60;  $displayTime = "1 giờ" }
-              "1_Giờ_30_Phút_(90m)"        { $totalMinutes = 90;  $displayTime = "1 giờ 30 phút" }
-              "2_Giờ_(120m)"               { $totalMinutes = 120; $displayTime = "2 giờ" }
-              "2_Giờ_30_Phút_(150m)"       { $totalMinutes = 150; $displayTime = "2 giờ 30 phút" }
-              "3_Giờ_(180m)"               { $totalMinutes = 180; $displayTime = "3 giờ" }
-              "3_Giờ_30_Phút_(210m)"       { $totalMinutes = 210; $displayTime = "3 giờ 30 phút" }
-              "4_Giờ_(240m)"               { $totalMinutes = 240; $displayTime = "4 giờ" }
-              "4_Giờ_30_Phút_(270m)"       { $totalMinutes = 270; $displayTime = "4 giờ 30 phút" }
-              "5_Giờ_(300m)"               { $totalMinutes = 300; $displayTime = "5 giờ" }
-              "5_Giờ_30_Phút_(330m)"       { $totalMinutes = 330; $displayTime = "5 giờ 30 phút" }
-              "6_Giờ_(360m)"               { $totalMinutes = 360; $displayTime = "6 giờ" }
+              "30_Phut_(30m)"              { $totalMinutes = 30;  $displayTime = "30 phut" }
+              "1_Gio_(60m)"                { $totalMinutes = 60;  $displayTime = "1 gio" }
+              "1_Gio_30_Phut_(90m)"        { $totalMinutes = 90;  $displayTime = "1 gio 30 phut" }
+              "2_Gio_(120m)"               { $totalMinutes = 120; $displayTime = "2 gio" }
+              "2_Gio_30_Phut_(150m)"       { $totalMinutes = 150; $displayTime = "2 gio 30 phut" }
+              "3_Gio_(180m)"               { $totalMinutes = 180; $displayTime = "3 gio" }
+              "3_Gio_30_Phut_(210m)"       { $totalMinutes = 210; $displayTime = "3 gio 30 phut" }
+              "4_Gio_(240m)"               { $totalMinutes = 240; $displayTime = "4 gio" }
+              "4_Gio_30_Phut_(270m)"       { $totalMinutes = 270; $displayTime = "4 gio 30 phut" }
+              "5_Gio_(300m)"               { $totalMinutes = 300; $displayTime = "5 gio" }
+              "5_Gio_30_Phut_(330m)"       { $totalMinutes = 330; $displayTime = "5 gio 30 phut" }
+              "6_Gio_(360m)"               { $totalMinutes = 360; $displayTime = "6 gio" }
           }
 
           $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
@@ -149,23 +146,23 @@ jobs:
 
           Write-Host ""
           Write-Host "┌────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-          Write-Host "│             🎉 KẾT NỐI THÀNH CÔNG - SẴN SÀNG!        │" -ForegroundColor Cyan
+          Write-Host "│             KET NOI THANH CONG - SAN SANG!         │" -ForegroundColor Cyan
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ 🌐  Địa chỉ Tailscale: $ip" -ForegroundColor White
-          Write-Host "│ 👤  Tài khoản: ducthanggaming" -ForegroundColor White
-          Write-Host "│ 🔐  Mật khẩu: $matKhau" -ForegroundColor White
-          Write-Host "│ ⏰  Thời lượng: $displayTime" -ForegroundColor White
-          Write-Host "│ 🕐  Bắt đầu: $($start.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
-          Write-Host "│ 🕐  Kết thúc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
-          Write-Host "│ 📍  Port: 3389" -ForegroundColor White
+          Write-Host "│ Dia chi Tailscale: $ip" -ForegroundColor White
+          Write-Host "│ Tai khoan: ducthanggaming" -ForegroundColor White
+          Write-Host "│ Mat khau: $matKhau" -ForegroundColor White
+          Write-Host "│ Thoi luong: $displayTime" -ForegroundColor White
+          Write-Host "│ Bat dau: $($start.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
+          Write-Host "│ Ket thuc: $($end.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor White
+          Write-Host "│ Port: 3389" -ForegroundColor White
           Write-Host "├────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-          Write-Host "│ 🔗 Quản lý Tailscale:" -ForegroundColor Cyan
+          Write-Host "│ Quan ly Tailscale:" -ForegroundColor Cyan
           Write-Host "│     $adminLink" -ForegroundColor Yellow
           Write-Host "└────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
           echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
 
-      - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
+      - name: Duy tri phien lam viec
         shell: powershell
         run: |
           $totalMinutes = [int]$env:TOTAL_MINUTES
@@ -173,17 +170,17 @@ jobs:
           $startTime = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
           $endTime = $startTime.AddMinutes($totalMinutes)
 
-          Write-Host "🔄 Duy trì phiên đến $($endTime.ToString('HH:mm:ss dd/MM/yyyy'))"
+          Write-Host "Duy tri phien den $($endTime.ToString('HH:mm:ss dd/MM/yyyy'))"
 
           while ($true) {
               $current = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
               $left = $endTime - $current
               if ($left.TotalSeconds -le 0) { break }
-              Write-Host "⏳ Còn lại: $($left.Hours)h $($left.Minutes)m $($left.Seconds)s" -ForegroundColor Cyan
+              Write-Host "Con lai: $($left.Hours)h $($left.Minutes)m $($left.Seconds)s" -ForegroundColor Cyan
               Start-Sleep -Seconds 30
           }
 
-      - name: 🧹 DỌN DẸP HỆ THỐNG
+      - name: Don dep he thong
         if: always()
         shell: powershell
         run: |
@@ -192,4 +189,4 @@ jobs:
           netsh advfirewall firewall delete rule name="RDP-Premium" | Out-Null
           netsh advfirewall firewall delete rule name="RDP-Premium-Out" | Out-Null
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1 -Force -ErrorAction SilentlyContinue
-          Write-Host "✅ Dọn dẹp hoàn tất!" -ForegroundColor Green
+          Write-Host "Don dep hoan tat!" -ForegroundColor Green
